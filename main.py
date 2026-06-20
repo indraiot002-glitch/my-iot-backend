@@ -56,12 +56,13 @@ def get_alarms(data: dict):
         if site in live_data:
             response_data[site] = live_data[site]
     return {"my_sites_data": response_data}
- @app.get("/api/devices/status")
+@app.get("/api/devices/status")
 def get_device_status():
-    # સાઇટ ૧ નો અસલી ડેટા જે તમારા પાયથન ડિવાઇસમાંથી આવે છે
+    # સાઇટ ૧ નો ડેટા જેમાં હવે આપણે humidity (ભેજ) પણ ઉમેરી દીધો છે
     site1_data = {
         "temperature": live_data.get("temperature", 33.6),
         "temp": live_data.get("temperature", 33.6),
+        "humidity": live_data.get("humidity", 55.0), # <--- નવો ભેજનો ડેટા (ડિફોલ્ટ 55%)
         "gas": live_data.get("gas", 4),
         "smoke": live_data.get("gas", 4),
         "door": live_data.get("door", "OPEN"),
@@ -69,16 +70,14 @@ def get_device_status():
         "is_alarm": live_data.get("is_alarm", True)
     }
     
-    # બાકીની સાઇટ્સ માટે નોર્મલ ડેટા
     other_site = {
-        "temperature": 26.5, "temp": 26.5, "gas": 0, "smoke": 0, "door": "CLOSED", "power": "ON", "is_alarm": False
+        "temperature": 26.5, "temp": 26.5, "humidity": 45.0, "gas": 0, "smoke": 0, "door": "CLOSED", "power": "ON", "is_alarm": False
     }
 
-    # એપ ગમે તે રીતે ડેટા રીડ કરતી હશે, આ ફોર્મેટથી તેને બધી વિગતો મળી જશે
     return {
         "Demo_Site_1": site1_data,
         "Demo_Site_2": other_site,
         "Demo_Site_3": other_site,
         "Demo_Site_4": other_site,
-        **site1_data  # સેફ્ટી માટે ફ્લેટ ડેટા પણ મોકલીએ છીએ
+        **site1_data
     }
