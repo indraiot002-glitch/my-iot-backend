@@ -23,6 +23,7 @@ class DevicePayload(BaseModel):
     temperature: float
     gas: int
     door: str
+    humidity: float
 
 # ૧. એપ લોગિન માટેની API
 @app.post("/api/login")
