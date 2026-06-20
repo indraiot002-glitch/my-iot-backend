@@ -55,8 +55,11 @@ def get_alarms(data: dict):
         if site in live_data:
             response_data[site] = live_data[site]
     return {"my_sites_data": response_data}
-    # ૪. ફ્લટર એપ માટે ડેટા આપવાની સાચી GET API
+  # ૪. ફ્લટર એપ માટે બધી જ સાઇટ્સનો લાઈવ ડેટા મોકલતી API
 @app.get("/api/devices/status")
 def get_device_status():
-    # બાય-ડિફોલ્ટ Demo_Site_1 નો લાઈવ IoT ડેટા મોકલશે
-    return live_data["Demo_Site_1"]
+    # આ રિસ્પોન્સ બધી જ ૪ સાઇટ્સનો ડેટા નામ સાથે મોકલશે, જેથી ડેશબોર્ડ લાઈવ થઈ જાય!
+    return {
+        **live_data,
+        "my_sites_data": live_data
+    }
