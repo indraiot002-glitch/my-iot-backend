@@ -55,11 +55,29 @@ def get_alarms(data: dict):
         if site in live_data:
             response_data[site] = live_data[site]
     return {"my_sites_data": response_data}
-  # ૪. ફ્લટર એપ માટે બધી જ સાઇટ્સનો લાઈવ ડેટા મોકલતી API
-@app.get("/api/devices/status")
+ @app.get("/api/devices/status")
 def get_device_status():
-    # આ રિસ્પોન્સ બધી જ ૪ સાઇટ્સનો ડેટા નામ સાથે મોકલશે, જેથી ડેશબોર્ડ લાઈવ થઈ જાય!
+    # સાઇટ ૧ નો અસલી ડેટા જે તમારા પાયથન ડિવાઇસમાંથી આવે છે
+    site1_data = {
+        "temperature": live_data.get("temperature", 33.6),
+        "temp": live_data.get("temperature", 33.6),
+        "gas": live_data.get("gas", 4),
+        "smoke": live_data.get("gas", 4),
+        "door": live_data.get("door", "OPEN"),
+        "power": "ON",
+        "is_alarm": live_data.get("is_alarm", True)
+    }
+    
+    # બાકીની સાઇટ્સ માટે નોર્મલ ડેટા
+    other_site = {
+        "temperature": 26.5, "temp": 26.5, "gas": 0, "smoke": 0, "door": "CLOSED", "power": "ON", "is_alarm": False
+    }
+
+    # એપ ગમે તે રીતે ડેટા રીડ કરતી હશે, આ ફોર્મેટથી તેને બધી વિગતો મળી જશે
     return {
-        **live_data,
-        "my_sites_data": live_data
+        "Demo_Site_1": site1_data,
+        "Demo_Site_2": other_site,
+        "Demo_Site_3": other_site,
+        "Demo_Site_4": other_site,
+        **site1_data  # સેફ્ટી માટે ફ્લેટ ડેટા પણ મોકલીએ છીએ
     }
