@@ -13,14 +13,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 💾 ભાવિનભાઈના ફિક્સ ૩ ડિવાઇસનું લાઇવ સ્ટેટસ
+# 💾 તમારા બધા સાઇટના ડેટા અહીં સ્ટોર થશે
 live_data = {
-    "GJ/AMD/BOPAL-512": {"status": "Online", "last_update": "Never"},
-    "GJ/AMD/BOPAL-513": {"status": "Offline", "last_update": "Never"},
-    "GJ/AMD/BOPAL-514": {"status": "Offline", "last_update": "Never"},
+    "Demo_Site_1": {"status": "Offline", "last_update": "Never"},
+    "Demo_Site_2": {"status": "Offline", "last_update": "Never"},
+    "Demo_Site_3": {"status": "Offline", "last_update": "Never"},
 }
 
-# 💬 એલાર્મ મેસેજ લોગ
 alerts_log = []
 
 class DevicePayload(BaseModel):
@@ -36,40 +35,36 @@ def update_data(data: DevicePayload):
     current_time = datetime.now().strftime("%I:%M %p")
     site = data.site_name
 
-    # જો નવું સાઇટ નામ હોય તો લિસ્ટમાં જોડી દેવું
     if site not in live_data:
         live_data[site] = {}
         
     live_data[site]["status"] = "Online"
     live_data[site]["last_update"] = current_time
 
-    # 🚨 ૧. તાપમાન એલાર્મ ચેક
+    # 🚨 એલાર્મ ચેક લોજિક
     if data.temperature >= 38.0:
-        alerts_log.insert(0, {"site": site, "message": f"🚨 HIGH TEMP ALERT! Temp: {data.temperature}°C", "time": current_time, "is_critical": True})
+        alerts_log.insert(0, {"site": site, "message": f"🚨 HIGH TEMP ALERT! Temp: {data.temperature}°C", "time": current_time})
     
-    # 🚨 ૨. ગેસ લીકેજ એલાર્મ ચેક
     if data.gas > 600:
-        alerts_log.insert(0, {"site": site, "message": f"🚨 FIRE/SMOKE ALERT! MQ2 Value: {data.gas}", "time": current_time, "is_critical": True})
+        alerts_log.insert(0, {"site": site, "message": f"🚨 FIRE/SMOKE ALERT! MQ2: {data.gas}", "time": current_time})
 
-    # 🚨 ૩. પાવર ફેલ એલાર્મ ચેક
     if data.power.upper() == "FAIL":
-        alerts_log.insert(0, {"site": site, "message": f"🚨 POWER FAILURE DETECTED!", "time": current_time, "is_critical": True})
+        alerts_log.insert(0, {"site": site, "message": f"🚨 POWER FAILURE DETECTED!", "time": current_time})
 
-    # 🔓 ૪. દરવાજો ખુલ્લો એલાર્મ ચેક
     if data.door.upper() in ["OPEN", "OPN"]:
-        alerts_log.insert(0, {"site": site, "message": f"🚨 SECURITY: Door Opened!", "time": current_time, "is_critical": True})
+        alerts_log.insert(0, {"site": site, "message": f"🚨 SECURITY: Door Opened!", "time": current_time})
 
-    # જો બધું નોર્મલ હોય તો સાદો સક્સેસ મેસેજ (આમાં 🚨 નથી)
+    # જો બધું ઓકે હોય તો સેફ મેસેજ
     if data.temperature < 38.0 and data.gas <= 600 and data.power.upper() == "ON" and data.door.upper() == "CLOSED":
-        # ફક્ત છેલ્લો મેસેજ એલાર્મ વગરનો હોય તો જ ઉમેરવો જેથી પૂર ન આવે
         if not alerts_log or alerts_log[0]["site"] != site or "✅" not in alerts_log[0]["message"]:
-            alerts_log.insert(0, {"site": site, "message": "✅ System Normal", "time": current_time, "is_critical": False})
+            alerts_log.insert(0, {"site": site, "message": "✅ System Normal", "time": current_time})
 
     if len(alerts_log) > 30:
         alerts_log.pop()
 
-    return {"status": "processed"}
+    return {"status": "success"}
 
+# 🔗 આ સાચો એન્ડપોઇન્ટ છે જે ફ્લટર એપ માંગે છે
 @app.get("/api/devices/list")
 def get_devices():
     return live_data
