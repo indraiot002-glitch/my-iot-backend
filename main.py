@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
+from typing import Optional
 
 app = FastAPI()
 
@@ -13,15 +14,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ૩ ફિક્સ ડિવાઇસ લિસ્ટ
-live_data = {
+# ---------- In-memory stores ----------
+# Device online/offline status (for list view)
+live_status = {
     "GJ/AMD/BOPAL-512": {"status": "Offline", "last_update": "Never"},
     "GJ/AMD/BOPAL-513": {"status": "Offline", "last_update": "Never"},
     "GJ/AMD/BOPAL-514": {"status": "Offline", "last_update": "Never"},
 }
 
+# Full latest data per device (to serve to Flutter app)
+latest_data = {}
+
+# Alerts log (for notification history)
 alerts_log = []
 
+# ---------- Request model ----------
 class DevicePayload(BaseModel):
     site_name: str
     temperature: float = 0.0
@@ -30,24 +37,48 @@ class DevicePayload(BaseModel):
     door: str = "CLOSED"
     power: str = "ON"
 
+# ---------- POST endpoint ----------
 @app.post("/api/device/update")
 def update_data(data: DevicePayload):
     current_time = datetime.now().strftime("%I:%M %p")
     site = data.site_name
 
-    if site not in live_data:
-        live_data[site] = {}
-        
-    live_data[site]["status"] = "Online"
-    live_data[site]["last_update"] = current_time
+    # Update live_status
+    if site not in live_status:
+        live_status[site] = {}
+    live_status[site]["status"] = "Online"
+    live_status[site]["last_update"] = current_time
 
-    # સ્ટેટસ ચેક કન્ડિશન
+    # Store full data (for GET /status)
+    latest_data[site] = {
+        "siteName": site,
+        "temperature": data.temperature,
+        "humidity": data.humidity,
+        "mq2": data.gas,
+        "doorState": 1 if data.door.upper() == "OPEN" else 0,
+        "powerState": 1 if data.power.upper() == "FAIL" else 0,
+        # We don't have thresholds in the payload, so we set placeholders (or you can store them)
+        "tempHigh": 38.0,
+        "tempLow": 34.0,
+        "humHigh": 70.0,
+        "humLow": 60.0,
+        "alarms": {
+            "tempHigh": data.temperature >= 38.0,
+            "humHigh": data.humidity >= 70.0,
+            "doorOpen": data.door.upper() == "OPEN",
+            "powerFail": data.power.upper() == "FAIL",
+            "smoke": data.gas >= 600,
+            "dhtFail": False,  # not provided
+        },
+        "lastUpdated": current_time,
+    }
+
+    # Build the status block (as you already do)
     temp_status = "✅ Temperature Normal" if data.temperature < 38.0 else "🚨 Temperature Sensor Fail"
     humidity_status = "✅ Humidity Normal" if data.humidity < 70.0 else "🚨 High Humidity Alert"
     power_status = "✅ Power Normal" if data.power.upper() == "ON" else "🚨 Power Failure Alert"
     fire_status = "Not Found" if data.gas <= 600 else "🔥 DETECTED!"
 
-    # 📱 image_311faf.png પ્રમાણે આખું મોટું સ્ટેટસ બોક્સ ફોર્મેટ
     status_block = (
         f"📋 {site} Current Status\n\n"
         f"🌡️ Temp: {data.temperature} C\n"
@@ -60,25 +91,37 @@ def update_data(data: DevicePayload):
         f"{power_status}"
     )
 
-    # જો સિસ્ટમ ક્રિટિકલ મોડમાં હોય તો પહેલા સિંગલ એલાર્મ લાઇન પણ નાખવી
+    # Add individual alerts
     if data.temperature >= 38.0:
         alerts_log.insert(0, {"site": site, "message": f"🚨🌡️ {site} Temperature Sensor Fail", "time": current_time})
-    
     if data.power.upper() == "FAIL":
         alerts_log.insert(0, {"site": site, "message": f"🔄 {site} System Restarted", "time": current_time})
-
-    # છેલ્લે આખું સ્ટેટસ કાર્ડ લિસ્ટમાં ઉમેરવું
+    # Always add the full status block as the latest message
     alerts_log.insert(0, {"site": site, "message": status_block, "time": current_time})
 
+    # Keep log size manageable
     if len(alerts_log) > 30:
         alerts_log.pop()
 
     return {"status": "success"}
 
+# ---------- GET endpoints ----------
 @app.get("/api/devices/list")
 def get_devices():
-    return live_data
+    return live_status
 
 @app.get("/api/devices/alerts")
 def get_alerts():
     return alerts_log
+
+# NEW: Get latest data for a specific device (for Flutter app)
+@app.get("/api/device/status/{site_name}")
+def get_device_status(site_name: str):
+    if site_name not in latest_data:
+        raise HTTPException(status_code=404, detail="Device not found or no data yet")
+    return latest_data[site_name]
+
+# NEW: Optionally get all devices' latest data
+@app.get("/api/devices/all")
+def get_all_devices():
+    return latest_data
