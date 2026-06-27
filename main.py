@@ -125,3 +125,5 @@ def get_device_status(site_name: str):
 @app.get("/api/devices/all")
 def get_all_devices():
     return latest_data
+
+uvicorn main:app --reload
