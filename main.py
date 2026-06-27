@@ -126,4 +126,3 @@ def get_device_status(site_name: str):
 def get_all_devices():
     return latest_data
 
-uvicorn main:app --reload
